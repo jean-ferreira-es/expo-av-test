@@ -6,12 +6,29 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { styles } from './styles';
 
 import * as FileSystem from 'expo-file-system';
+import axios from 'axios';
 
 const GCP_SPEECH_TO_TEXT_KEY = 'AIzaSyBKanvvHseuKNF8HjU4fubUkNXqSS_lREM';
+const TOKEN = "VEF*1rTVIq4&z^02*dVO2gf79";
 
 export default function App() {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingFileURI, setRecordingFileURI] = useState<string | null>(null);
+
+  const recordingOptions = {
+    android: {
+      extension: '.flac',
+      outputFormat: Audio.AndroidOutputFormat.DEFAULT,
+      audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
+      // sampleRate: 44100,
+      // numberOfChannels: 2,
+      // bitRate: 128000,
+    },
+    ios: {
+      extension: '.caf',
+    },
+    web: {}
+  }
   
   useEffect(() => {
     getPermission();
@@ -39,7 +56,9 @@ export default function App() {
     
     if(granted){
       try {
-        const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+        const recording = new Audio.Recording();
+        await recording.prepareToRecordAsync(recordingOptions);
+        await recording.startAsync();
         setRecording(recording);
       } catch (error) {
         Alert.alert('Erro ao gravar', 'Não possível iniciar a gravação.');
@@ -81,24 +100,35 @@ export default function App() {
 
     console.log(base64File);
 
-    fetch(`https://speech.googleapis.com/v1/speech:recognize?key=${GCP_SPEECH_TO_TEXT_KEY}`, {
-      method: 'POST',
-      body: JSON.stringify({
-        cofig: {
-          languageCode: "pt-BR",
-          encoding: "LINEAR16",
-          sampleRateHertz: 41000,
-        },
-        audio: {
-          content: base64File
-        }
-      })
-    })
-    .then(response => response.json())
-    .then((data) => {
-      console.log(data.results[0].alternatives[0].transcript);
-      // setDescription(data.results[0].alternatives[0].transcript);
-    })
+    try {
+      const response = await axios.post('https://smart.indt.org.br:4200/transcribe', 
+        { audio_base64: base64File },
+        { headers: {  'x-api-token': TOKEN }}
+      );
+
+      console.log(response);
+    } catch (error) {
+      console.log(error);
+    }
+
+    // fetch(`https://speech.googleapis.com/v1/speech:recognize?key=${GCP_SPEECH_TO_TEXT_KEY}`, {
+    //   method: 'POST',
+    //   body: JSON.stringify({
+    //     cofig: {
+    //       languageCode: "pt-BR",
+    //       encoding: "LINEAR16",
+    //       sampleRateHertz: 41000,
+    //     },
+    //     audio: {
+    //       content: base64File
+    //     }
+    //   })
+    // })
+    // .then(response => response.json())
+    // .then((data) => {
+    //   console.log(data.results[0].alternatives[0].transcript);
+    //   // setDescription(data.results[0].alternatives[0].transcript);
+    // })
   }
 
   return (
